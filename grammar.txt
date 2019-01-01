@@ -1,0 +1,35 @@
+program        → declaration* EOF ;
+declaration    → varDecl
+               | statement ;
+statement      → exprStmt
+               | forStmt
+               | ifStmt
+               | printStmt
+               | whileStmt
+               | block ;
+block          → "{" declaration* "}" ;
+forStmt        → "for" ( varDecl | exprStmt | ";" ) expression? ";" expression? block ;
+ifStmt         → "if" expression block ( "else" block )? ;
+whileStmt      → "while" expression ":" block ;
+breakStmt      → "break" ( expression )? ";" ;
+varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
+exprStmt       → expression ";" ;
+printStmt      → "print" expression ";" ;
+expression     → assignment ;
+sequence       → assignment ( "," assignment )* ;
+assignment     → IDENTIFIER "=" assignment ;
+               | conditional ;
+conditional    → logicalOr ( "?" conditional ":" conditional )*
+logicalOr      → logicalAnd ( "or" logicalAnd )*
+logicalAnd     → equality ( "and" equality )*
+equality       → comparison ( ( "!=" | "==" ) comparison )* ;
+comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
+addition       → multiplication ( ( "-" | "+" ) multiplication )* ;
+multiplication → unary ( ( "/" | "*" ) unary )* ;
+unary          → ( "!" | "-" ) unary
+               | call ;
+call           → primary ( "(" arguments? ")" )* ;
+arguments      → expression ( "," expression )* ;
+primary        → NUMBER | STRING | "false" | "true" | "nil"
+               | "(" expression ")"
+               | IDENTIFIER ;

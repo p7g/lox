@@ -1,0 +1,2 @@
+- ruby-style do/end blocks
+- allow ?, !, and - in identifiers (? and ! only as last char)
