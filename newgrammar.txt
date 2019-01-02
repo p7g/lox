@@ -1,0 +1,63 @@
+program -> declaration* EOF
+
+declaration -> letDeclaration | funDeclaration | statement
+
+statement -> block
+           | expressionStatement
+           | ifStatement
+           | whileStatemen
+
+block -> "do" declaration* "end"
+
+expressionStatement -> expression ";"
+
+ifStatement -> "if" expression block ( "else" ( ifStatement | block ) )?
+
+whileStatement -> "while" expression block
+
+breakStatement -> "break" ( expression )? ";"
+
+letDeclaration -> "let" IDENTIFIER ( "=" expression )? ";"
+
+funDeclaration -> "fun" IDENTIFIER ( "(" arguments? ")" )? declaration* "end"
+
+expression -> sequence
+
+sequence -> assignment ( "," assignment )*
+
+assignment -> IDENTIFIER
+              ( "=" | "+=" | "-=" | "*=" | "/=" | "%="
+              | "<<=" | ">>=" | "&=" | "^=" | "|=" )
+              assignment | conditional
+
+conditional -> logicalOr ( "?" expression ":" conditional )*
+
+logicalOr -> logicalAnd ( "or" logicalAnd )*
+
+logicalAnd -> bitwiseOr ( "and" bitwiseOr )*
+
+bitwiseOr -> bitwiseXor ( "|" bitwiseXor )*
+
+bitwiseXor -> bitwiseAnd ( "^" bitwiseAnd )*
+
+bitwiseAnd -> equality ( "&" equality )*
+
+equality -> comparison ( ( "!=" | "==" ) comparison )*
+
+comparison -> shift ( ( ">" | ">=" | "<" | "<=" ) shift )*
+
+shift -> addition ( ( ">>" | "<<" ) addition )*
+
+addition -> multiplication ( ( "-" | "+" ) multiplication )*
+
+multiplication -> unary ( ( "/" | "*" ) unary )*
+
+unary -> ( "!" | "-" | "~" | "++" | "--" ) unary | call
+
+postfix -> primary ( "(" arguments? ")" | "++" | "--" )*
+
+arguments -> expression ( "," expression )*
+
+primary -> NUMBER | STRING | "false" | "true" | "nil"
+         | "(" expression ")"
+         | IDENTIFIER
