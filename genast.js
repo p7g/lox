@@ -1,13 +1,78 @@
 const fs = require('fs').promises;
 const path = require('path');
 
+function printLines(lines, indent) {
+  return lines.join(`\n${'  '.repeat(indent)}`);
+}
+
+function fieldAssignments(fields, indent) {
+  return printLines(
+    fields.map(f => f.split(' ')).map(([, name]) => `this.${name} = ${name};`),
+    indent,
+  );
+}
+
+function fieldProperties(fields, indent) {
+  return printLines(
+    fields
+      .map(f => f.split(' '))
+      .map(([type, name]) => `final ${type} ${name};`),
+    indent,
+  );
+}
+
+function defineAst(outputDir, baseName, types) {
+  const outPath = path.join(outputDir, `${baseName}.java`);
+
+  return fs.writeFile(
+    outPath,
+    `\
+package lox;
+
+import java.util.List;
+
+abstract class ${baseName} {
+  interface Visitor<R> {
+${Object.entries(types)
+    .map(
+      ([className]) => `\
+    R visit${className + baseName}(${className} ${baseName.toLowerCase()});\
+`,
+    )
+    .join('\n')}
+  }
+
+  abstract <R> R accept(Visitor<R> visitor);
+
+${Object.entries(types)
+    .map(
+      ([className, fields]) => `\
+  static class ${className} extends ${baseName} {
+    ${fieldProperties(fields, 2)}
+
+    ${className}(${fields.join(', ')}) {
+      ${fieldAssignments(fields, 3)}
+    }
+
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visit${className + baseName}(this);
+    }
+  }
+`,
+    )
+    .join('\n')}
+}`,
+  );
+}
+
 (async () => {
   if (process.argv.length !== 3) {
+    // eslint-disable-next-line
     console.error('Usage: node genast <output directory>');
     process.exit(1);
   }
 
-  console.log('Generating Stmt class...');
+  console.log('Generating Stmt class...'); // eslint-disable-line
   await defineAst(process.argv[2], 'Stmt', {
     Block: [
       'List<Stmt> statements',
@@ -35,7 +100,7 @@ const path = require('path');
     ],
   });
 
-  console.log('Generating Expr class...');
+  console.log('Generating Expr class...'); // eslint-disable-line
   await defineAst(process.argv[2], 'Expr', {
     Assign: [
       'Token name',
@@ -77,61 +142,5 @@ const path = require('path');
       'Token name',
     ],
   });
-  console.log('Done');
-})().catch(console.error);
-
-function defineAst(outputDir, baseName, types) {
-  const outPath = path.join(outputDir, `${baseName}.java`);
-
-  return fs.writeFile(outPath, `\
-package lox;
-
-import java.util.List;
-
-abstract class ${baseName} {
-  interface Visitor<R> {
-${Object.entries(types).map(([className, fields]) => `\
-    R visit${className + baseName}(${className} ${baseName.toLowerCase()});\
-`).join('\n')}
-  }
-
-  abstract <R> R accept(Visitor<R> visitor);
-
-${Object.entries(types).map(([className, fields]) => `\
-  static class ${className} extends ${baseName} {
-    ${fieldProperties(fields, 2)}
-
-    ${className}(${fields.join(', ')}) {
-      ${fieldAssignments(fields, 3)}
-    }
-
-    <R> R accept(Visitor<R> visitor) {
-      return visitor.visit${className + baseName}(this);
-    }
-  }
-`).join('\n')}
-}`);
-}
-
-function fieldAssignments(fields, indent) {
-  return printLines(
-    fields
-      .map(f => f.split(' '))
-      .map(([, name]) => `this.${name} = ${name};`),
-    indent,
-  );
-}
-
-function fieldProperties(fields, indent) {
-  return printLines(
-    fields
-      .map(f => f.split(' '))
-      .map(([type, name]) => `final ${type} ${name};`),
-    indent,
-  );
-}
-
-function printLines(lines, indent) {
-  return lines.join(`\n${'  '.repeat(indent)}`);
-}
-
+  console.log('Done'); // eslint-disable-line
+})().catch(console.error); // eslint-disable-line
