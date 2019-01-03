@@ -4,14 +4,20 @@ declaration -> letDeclaration | funDeclaration | statement
 
 statement -> block
            | expressionStatement
+           | forStatement
            | ifStatement
+           | returnStatement
            | whileStatemen
 
 block -> "do" declaration* "end"
 
 expressionStatement -> expression ";"
 
+forStatement -> "for" ( declaration | expressionStatement | ";" ) expression? ";" expression? block
+
 ifStatement -> "if" expression block ( "else" ( ifStatement | block ) )?
+
+returnStatement -> "return" expression? ";"
 
 whileStatement -> "while" expression block
 
@@ -19,9 +25,15 @@ breakStatement -> "break" ( expression )? ";"
 
 letDeclaration -> "let" IDENTIFIER ( "=" expression )? ";"
 
-funDeclaration -> "fun" IDENTIFIER ( "(" arguments? ")" )? declaration* "end"
+funDeclaration -> "fun" function
 
-expression -> sequence
+function -> IDENTIFIER ( "(" parameters? ")" )? declaration* "end"
+
+parameters -> IDENTIFIER ( "," IDENTIFIER )*
+
+expression -> lambda
+
+lambda -> "\" parameters? "->" expression | sequence
 
 sequence -> assignment ( "," assignment )*
 

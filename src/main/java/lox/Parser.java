@@ -45,6 +45,9 @@ class Parser {
     if (match(DO)) {
       return block(loopCount);
     }
+    if (match(RETURN)) {
+      return returnStatement();
+    }
     if (match(WHILE)) {
       return whileStatement(loopCount);
     }
@@ -142,7 +145,19 @@ class Parser {
     }
 
     consume(SEMICOLON, "Expected ';' after variable declaration");
-    return new Stmt.Var(name, initializer);
+    return new Stmt.Let(name, initializer);
+  }
+
+  private Stmt returnStatement() {
+    Token keyword = previous();
+
+    Expr value = null;
+    if (!check(SEMICOLON)) {
+      value = expression();
+    }
+
+    consume(SEMICOLON, "Expected ';' after return value");
+    return new Stmt.Return(keyword, value);
   }
 
   private Stmt whileStatement(int loopCount) {
@@ -176,6 +191,9 @@ class Parser {
       if (match(LET)) {
         return letDeclaration();
       }
+      if (match(FUN)) {
+        return function(loopCount, "function");
+      }
 
       return statement(loopCount);
     }
@@ -183,6 +201,33 @@ class Parser {
       synchronize();
       return null;
     }
+  }
+
+  private Stmt.Function function(int loopCount, String kind) {
+    Token name = consume(IDENTIFIER, "Expected " + kind + " name");
+
+    List<Token> parameters = new ArrayList<>();
+
+    if (match(LEFT_PAREN)) {
+      if (!check(RIGHT_PAREN)) {
+        do {
+          if (parameters.size() >= 32) {
+            error(peek(), "Expected no more than 32 parameters");
+          }
+
+          parameters.add(consume(IDENTIFIER, "Expected identifier"));
+        } while (match(COMMA));
+      }
+      consume(RIGHT_PAREN, "Expected ')' after parameter list");
+    }
+
+    List<Stmt> body = new ArrayList<>();
+    while (!check(END)) {
+      body.add(declaration(loopCount));
+    }
+    consume(END, "Expected 'end' after " + kind + " body");
+
+    return new Stmt.Function(name, parameters, body);
   }
 
   private Expr expression() {

@@ -85,14 +85,23 @@ ${Object.entries(types)
     Expression: [
       'Expr expression',
     ],
+    Function: [
+      'Token name',
+      'List<Token> params',
+      'List<Stmt> body',
+    ],
     If: [
       'Expr condition',
       'Stmt thenBranch',
       'Stmt elseBranch',
     ],
-    Var: [
+    Let: [
       'Token name',
       'Expr initializer',
+    ],
+    Return: [
+      'Token keyword',
+      'Expr value',
     ],
     While: [
       'Expr condition',

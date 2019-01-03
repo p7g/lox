@@ -4,14 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
-  private static class BreakException extends RuntimeException {
-    public int levels;
-    BreakException(int levels) {
-      this.levels = levels;
-    }
-  }
-
-  private Environment globals = new Environment();
+  public Environment globals = new Environment();
   private Environment environment = globals;
 
   public Interpreter() {
@@ -89,7 +82,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     stmt.accept(this);
   }
 
-  private void executeBlock(List<Stmt> statements, Environment environment) {
+  public void executeBlock(List<Stmt> statements, Environment environment) {
     Environment previous = this.environment;
     try {
       this.environment = environment;
@@ -125,7 +118,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
       }
     }
     if (levels > 0) {
-      throw new BreakException((int) levels);
+      throw new Break((int) levels);
     }
     return null;
   }
@@ -133,6 +126,13 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   @Override
   public Void visitExpressionStmt(Stmt.Expression stmt) {
     evaluate(stmt.expression);
+    return null;
+  }
+
+  @Override
+  public Void visitFunctionStmt(Stmt.Function stmt) {
+    LoxFunction function = new LoxFunction(stmt);
+    environment.define(stmt.name.lexeme, function);
     return null;
   }
 
@@ -148,7 +148,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   }
 
   @Override
-  public Void visitVarStmt(Stmt.Var stmt) {
+  public Void visitLetStmt(Stmt.Let stmt) {
     Object value = null;
     if (stmt.initializer != null) {
       value = evaluate(stmt.initializer);
@@ -159,12 +159,22 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   }
 
   @Override
+  public Void visitReturnStmt(Stmt.Return stmt) {
+    Object value = null;
+    if (stmt.value != null) {
+      value = evaluate(stmt.value);
+    }
+
+    throw new Return(value);
+  }
+
+  @Override
   public Void visitWhileStmt(Stmt.While stmt) {
     while (isTruthy(evaluate(stmt.condition))) {
       try {
         execute(stmt.body);
       }
-      catch (BreakException error) {
+      catch (Break error) {
         if (error.levels > 1) {
           error.levels -= 1;
           throw error;
