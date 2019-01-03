@@ -26,6 +26,15 @@ class Parser {
     return statements;
   }
 
+  public Expr parseExpression() throws Exception {
+    try {
+      return expression();
+    }
+    catch (ParseError error) {
+      throw new Exception();
+    }
+  }
+
   private Stmt statement(int loopCount) {
     if (match(FOR)) {
       return forStatement(loopCount);
@@ -33,7 +42,7 @@ class Parser {
     if (match(IF)) {
       return ifStatement(loopCount);
     }
-    if (match(LEFT_BRACE)) {
+    if (match(DO)) {
       return block(loopCount);
     }
     if (match(WHILE)) {
@@ -64,8 +73,8 @@ class Parser {
     if (match(SEMICOLON)) {
       initializer = null;
     }
-    else if (match(VAR)) {
-      initializer = varDeclaration();
+    else if (match(LET)) {
+      initializer = letDeclaration();
     }
     else {
       initializer = expressionStatement();
@@ -78,11 +87,11 @@ class Parser {
     consume(SEMICOLON, "Expected ';' after for condition");
 
     Expr increment = null;
-    if (!check(LEFT_BRACE)) {
+    if (!check(DO)) {
       increment = expression();
     }
 
-    consume(LEFT_BRACE, "Expected '{' after for clauses");
+    consume(DO, "Expected 'do' after for clauses");
     Stmt body = block(loopCount + 1);
 
     if (increment != null) {
@@ -106,7 +115,7 @@ class Parser {
   private Stmt ifStatement(int loopCount) {
     Expr condition = expression();
 
-    consume(LEFT_BRACE, "Expected '{' after if condition");
+    consume(DO, "Expected 'do' after if condition");
 
     Stmt thenBranch = block(loopCount);
     Stmt elseBranch = null;
@@ -116,7 +125,7 @@ class Parser {
         elseBranch = ifStatement(loopCount);
       }
       else {
-        consume(LEFT_BRACE, "Expected '{' after else");
+        consume(DO, "Expected 'do' after else");
         elseBranch = block(loopCount);
       }
     }
@@ -124,7 +133,7 @@ class Parser {
     return new Stmt.If(condition, thenBranch, elseBranch);
   }
 
-  private Stmt varDeclaration() {
+  private Stmt letDeclaration() {
     Token name = consume(IDENTIFIER, "Expected variable name");
 
     Expr initializer = null;
@@ -139,7 +148,7 @@ class Parser {
   private Stmt whileStatement(int loopCount) {
     Expr condition = expression();
 
-    consume(LEFT_BRACE, "Expected '{' after while condition");
+    consume(DO, "Expected 'do' after while condition");
     Stmt body = block(loopCount + 1);
 
     return new Stmt.While(condition, body);
@@ -154,18 +163,18 @@ class Parser {
   private Stmt block(int loopCount) {
     List<Stmt> statements = new ArrayList<>();
 
-    while (!check(RIGHT_BRACE) && !isAtEnd()) {
+    while (!check(END) && !isAtEnd()) {
       statements.add(declaration(loopCount));
     }
 
-    consume(RIGHT_BRACE, "Expected '}' after block");
+    consume(END, "Expected 'end' after block");
     return new Stmt.Block(statements);
   }
 
   private Stmt declaration(int loopCount) {
     try {
-      if (match(VAR)) {
-        return varDeclaration();
+      if (match(LET)) {
+        return letDeclaration();
       }
 
       return statement(loopCount);
@@ -195,9 +204,68 @@ class Parser {
   private Expr assignment() {
     Expr expr = conditional();
 
-    if (match(EQUAL)) {
+    if (match(
+      EQUAL, PLUS_EQUAL, MINUS_EQUAL, STAR_EQUAL, SLASH_EQUAL,
+      PERCENT_EQUAL, LESS_LESS_EQUAL, GREATER_GREATER_EQUAL,
+      AMPERSAND_EQUAL, CARET_EQUAL, PIPE_EQUAL
+    )) {
       Token equals = previous();
       Expr value = assignment();
+
+      if (equals.type != EQUAL) {
+        TokenType operatorType = null;
+        switch (equals.type) {
+          case PLUS_EQUAL:
+            operatorType = PLUS;
+            break;
+          case MINUS_EQUAL:
+            operatorType = MINUS;
+            break;
+          case STAR_EQUAL:
+            operatorType = STAR;
+            break;
+          case SLASH_EQUAL:
+            operatorType = SLASH;
+            break;
+          case PERCENT_EQUAL:
+            operatorType = PERCENT;
+            break;
+          case LESS_LESS_EQUAL:
+            operatorType = LESS_LESS;
+            break;
+          case GREATER_GREATER_EQUAL:
+            operatorType = GREATER_GREATER;
+            break;
+          case AMPERSAND_EQUAL:
+            operatorType = AMPERSAND;
+            break;
+          case CARET_EQUAL:
+            operatorType = CARET;
+            break;
+          case PIPE_EQUAL:
+            operatorType = PIPE;
+            break;
+          default: break;
+        }
+        equals = new Token(
+          EQUAL,
+          equals.lexeme,
+          equals.literal,
+          equals.line,
+          equals.column
+        );
+        value = new Expr.Binary(
+          expr,
+          new Token(
+            operatorType,
+            equals.lexeme,
+            equals.literal,
+            equals.line,
+            equals.column
+          ),
+          value
+        );
+      }
 
       if (expr instanceof Expr.Variable) {
         Token name = ((Expr.Variable) expr).name;
@@ -238,12 +306,48 @@ class Parser {
   }
 
   private Expr and() {
-    Expr expr = equality();
+    Expr expr = bitwiseOr();
 
     while (match(AND)) {
       Token operator = previous();
-      Expr right = equality();
+      Expr right = bitwiseOr();
       expr = new Expr.Logical(expr, operator, right);
+    }
+
+    return expr;
+  }
+
+  private Expr bitwiseOr() {
+    Expr expr = bitwiseXor();
+
+    while (match(PIPE)) {
+      Token operator = previous();
+      Expr right = bitwiseXor();
+      expr = new Expr.Bitwise(expr, operator, right);
+    }
+
+    return expr;
+  }
+
+  private Expr bitwiseXor() {
+    Expr expr = bitwiseAnd();
+
+    while (match(CARET)) {
+      Token operator = previous();
+      Expr right = bitwiseAnd();
+      expr = new Expr.Bitwise(expr, operator, right);
+    }
+
+    return expr;
+  }
+
+  private Expr bitwiseAnd() {
+    Expr expr = equality();
+
+    while (match(AMPERSAND)) {
+      Token operator = previous();
+      Expr right = equality();
+      expr = new Expr.Bitwise(expr, operator, right);
     }
 
     return expr;
@@ -262,12 +366,24 @@ class Parser {
   }
 
   private Expr comparison() {
-    Expr expr = addition();
+    Expr expr = shift();
 
     while (match(GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)) {
       Token operator = previous();
-      Expr right = addition();
+      Expr right = shift();
       expr = new Expr.Binary(expr, operator, right);
+    }
+
+    return expr;
+  }
+
+  private Expr shift() {
+    Expr expr = addition();
+
+    while (match(LESS_LESS, GREATER_GREATER)) {
+      Token operator = previous();
+      Expr right = addition();
+      expr = new Expr.Shift(expr, operator, right);
     }
 
     return expr;
@@ -288,7 +404,7 @@ class Parser {
   private Expr multiplication() {
     Expr expr = unary();
 
-    while (match(SLASH, STAR)) {
+    while (match(SLASH, STAR, PERCENT)) {
       Token operator = previous();
       Expr right = unary();
       expr = new Expr.Binary(expr, operator, right);
@@ -428,12 +544,13 @@ class Parser {
       switch (peek().type) {
         case CLASS:
         case FUN:
-        case VAR:
+        case LET:
         case FOR:
         case IF:
         case WHILE:
         case RETURN:
           return;
+        default: break;
       }
 
       advance();

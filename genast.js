@@ -116,6 +116,11 @@ ${Object.entries(types)
       'Token operator',
       'Expr right',
     ],
+    Bitwise: [
+      'Expr left',
+      'Token operator',
+      'Expr right',
+    ],
     Ternary: [
       'Expr left',
       'Token leftOperator',
@@ -130,6 +135,11 @@ ${Object.entries(types)
       'Object value',
     ],
     Logical: [
+      'Expr left',
+      'Token operator',
+      'Expr right',
+    ],
+    Shift: [
       'Expr left',
       'Token operator',
       'Expr right',

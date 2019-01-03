@@ -72,6 +72,15 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
   }
 
+  public void interpret(Expr expression) {
+    try {
+      System.out.println(evaluate(expression));
+    }
+    catch (RuntimeError error) {
+      Lox.runtimeError(error);
+    }
+  }
+
   private Object evaluate(Expr expr) {
     return expr.accept(this);
   }
@@ -189,6 +198,9 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
       case STAR:
         checkNumberOperands(expr.operator, left, right);
         return (double) left * (double) right;
+      case PERCENT:
+        checkNumberOperands(expr.operator, left, right);
+        return (double) left % (double) right;
       case PLUS:
         if (left instanceof Double && right instanceof Double) {
           return (double) left + (double) right;
@@ -218,9 +230,32 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return !isEqual(left, right);
       case COMMA:
         return right;
+      default: break;
     }
 
     // unreachable
+    return null;
+  }
+
+  @Override
+  public Object visitBitwiseExpr(Expr.Bitwise expr) {
+    Object left = evaluate(expr.left);
+    Object right = evaluate(expr.right);
+
+    checkNumberOperands(expr.operator, left, right);
+
+    int a = toInt(left);
+    int b = toInt(right);
+
+    switch (expr.operator.type) {
+      case PIPE:
+        return a | b;
+      case CARET:
+        return a ^ b;
+      case AMPERSAND:
+        return a & b;
+      default: break;
+    }
     return null;
   }
 
@@ -277,6 +312,27 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   }
 
   @Override
+  public Object visitShiftExpr(Expr.Shift expr) {
+    Object left = evaluate(expr.left);
+    Object right = evaluate(expr.right);
+
+    checkNumberOperands(expr.operator, left, right);
+
+    int a = toInt(left);
+    int b = toInt(right);
+
+    switch (expr.operator.type) {
+      case LESS_LESS:
+        return a << b;
+      case GREATER_GREATER:
+        return a >> b;
+      default: break;
+    }
+
+    return null;
+  }
+
+  @Override
   public Object visitUnaryExpr(Expr.Unary expr) {
     Object right = evaluate(expr.right);
 
@@ -286,6 +342,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return -(double) right;
       case BANG:
         return !isTruthy(right);
+      default: break;
     }
 
     // unreachable
@@ -314,7 +371,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     return null;
   }
 
-  private void checkNumberOperand(Token operator, Object operand) {
+  private static void checkNumberOperand(Token operator, Object operand) {
     if (operand instanceof Double) {
       return;
     }
@@ -322,7 +379,10 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     throw new RuntimeError(operator, "Operand must be a number");
   }
 
-  private void checkNumberOperands(Token operator, Object left, Object right) {
+  private static void checkNumberOperands(
+    Token operator,
+    Object left, Object right
+  ) {
     if (left instanceof Double && right instanceof Double) {
       return;
     }
@@ -330,7 +390,11 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     throw new RuntimeError(operator, "Operands must be numbers");
   }
 
-  private boolean isTruthy(Object object) {
+  private static int toInt(Object value) {
+    return ((Double) value).intValue();
+  }
+
+  private static boolean isTruthy(Object object) {
     if (object == null) {
       return false;
     }
@@ -341,7 +405,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     return true;
   }
 
-  private Boolean isEqual(Object a, Object b) {
+  private static Boolean isEqual(Object a, Object b) {
     // nil is only equal to nil
     if (a == null) {
       if (b == null) {

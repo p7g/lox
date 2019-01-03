@@ -45,7 +45,7 @@ public class Lox {
 
         for (;;) {
             System.out.print("> ");
-            run(reader.readLine());
+            runRepl(reader.readLine());
             hadError = false;
         }
     }
@@ -61,6 +61,29 @@ public class Lox {
         }
 
         interpreter.interpret(statements);
+    }
+
+    private static void runRepl(String source) {
+        Scanner scanner = new Scanner(source);
+        List<Token> tokens = scanner.scanTokens();
+
+        try {
+            Parser parser = new Parser(tokens);
+            Expr expression = parser.parseExpression();
+            if (hadError) {
+                return;
+            }
+            interpreter.interpret(expression);
+        }
+        catch (Exception error) {
+            hadError = false;
+            Parser parser = new Parser(tokens);
+            List<Stmt> statements = parser.parse();
+            if (hadError) {
+                return;
+            }
+            interpreter.interpret(statements);
+        }
     }
 
     public static void error(int line, int column, String message) {

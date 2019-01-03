@@ -27,18 +27,20 @@ class Scanner {
         keywords.put("and", AND);
         keywords.put("break", BREAK);
         keywords.put("class", CLASS);
+        keywords.put("do", DO);
         keywords.put("else", ELSE);
+        keywords.put("end", END);
         keywords.put("false", FALSE);
         keywords.put("for", FOR);
         keywords.put("fun", FUN);
         keywords.put("if", IF);
+        keywords.put("let", LET);
         keywords.put("nil", NIL);
         keywords.put("or", OR);
         keywords.put("return", RETURN);
         keywords.put("super", SUPER);
         keywords.put("this", THIS);
         keywords.put("true", TRUE);
-        keywords.put("var", VAR);
         keywords.put("while", WHILE);
     }
 
@@ -75,15 +77,42 @@ class Scanner {
             case ':': addToken(COLON); break;
             case ',': addToken(COMMA); break;
             case '.': addToken(DOT); break;
-            case '-': addToken(MINUS); break;
-            case '+': addToken(PLUS); break;
             case '?': addToken(QUESTION_MARK); break;
             case ';': addToken(SEMICOLON); break;
-            case '*': addToken(STAR); break;
+            case '*': addToken(match('=') ? STAR_EQUAL : STAR); break;
             case '!': addToken(match('=') ? BANG_EQUAL : BANG); break;
             case '=': addToken(match('=') ? EQUAL_EQUAL : EQUAL); break;
-            case '<': addToken(match('=') ? LESS_EQUAL : LESS); break;
-            case '>': addToken(match('=') ? GREATER_EQUAL : GREATER); break;
+            case '^': addToken(match('=') ? CARET_EQUAL : CARET); break;
+            case '&': addToken(match('=') ? AMPERSAND_EQUAL : AMPERSAND); break;
+            case '|': addToken(match('=') ? PIPE_EQUAL : PIPE); break;
+            case '~': addToken(match('=') ? TILDE_EQUAL : TILDE); break;
+            case '%': addToken(match('=') ? PERCENT_EQUAL : PERCENT); break;
+            case '-': addToken(match('=') ? MINUS_EQUAL : MINUS); break;
+            case '+': addToken(match('=') ? PLUS_EQUAL : PLUS); break;
+            case '<':
+                if (match('=')) {
+                    addToken(LESS_EQUAL);
+                }
+                else if (match('<')) {
+                    addToken(match('=') ? LESS_LESS_EQUAL : LESS_LESS);
+                }
+                else {
+                    addToken(LESS);
+                }
+                break;
+            case '>':
+                if (match('=')) {
+                    addToken(GREATER_EQUAL);
+                }
+                else if (match('>')) {
+                    addToken(
+                        match('=') ? GREATER_GREATER_EQUAL : GREATER_GREATER
+                    );
+                }
+                else {
+                    addToken(GREATER);
+                }
+                break;
             case '/':
                 if (match('/')) {
                     // a comment goes on until the end of the line
@@ -101,6 +130,9 @@ class Scanner {
                     }
                     advance();
                     advance();
+                }
+                else if (match('=')) {
+                    addToken(SLASH_EQUAL);
                 }
                 else {
                     addToken(SLASH);

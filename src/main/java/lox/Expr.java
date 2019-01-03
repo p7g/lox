@@ -7,10 +7,12 @@ abstract class Expr {
     R visitAssignExpr(Assign expr);
     R visitCallExpr(Call expr);
     R visitBinaryExpr(Binary expr);
+    R visitBitwiseExpr(Bitwise expr);
     R visitTernaryExpr(Ternary expr);
     R visitGroupingExpr(Grouping expr);
     R visitLiteralExpr(Literal expr);
     R visitLogicalExpr(Logical expr);
+    R visitShiftExpr(Shift expr);
     R visitUnaryExpr(Unary expr);
     R visitVariableExpr(Variable expr);
   }
@@ -60,6 +62,22 @@ abstract class Expr {
 
     <R> R accept(Visitor<R> visitor) {
       return visitor.visitBinaryExpr(this);
+    }
+  }
+
+  static class Bitwise extends Expr {
+    final Expr left;
+    final Token operator;
+    final Expr right;
+
+    Bitwise(Expr left, Token operator, Expr right) {
+      this.left = left;
+      this.operator = operator;
+      this.right = right;
+    }
+
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitBitwiseExpr(this);
     }
   }
 
@@ -120,6 +138,22 @@ abstract class Expr {
 
     <R> R accept(Visitor<R> visitor) {
       return visitor.visitLogicalExpr(this);
+    }
+  }
+
+  static class Shift extends Expr {
+    final Expr left;
+    final Token operator;
+    final Expr right;
+
+    Shift(Expr left, Token operator, Expr right) {
+      this.left = left;
+      this.operator = operator;
+      this.right = right;
+    }
+
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitShiftExpr(this);
     }
   }
 
