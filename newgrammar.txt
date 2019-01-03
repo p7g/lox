@@ -15,7 +15,7 @@ expressionStatement -> expression ";"
 
 forStatement -> "for" ( declaration | expressionStatement | ";" ) expression? ";" expression? block
 
-ifStatement -> "if" expression block ( "else" ( ifStatement | block ) )?
+ifStatement -> "if" expression "do" declaration* ( "else" ( ifStatement | "do" block ) )? "end"
 
 returnStatement -> "return" expression? ";"
 
@@ -33,9 +33,9 @@ parameters -> IDENTIFIER ( "," IDENTIFIER )*
 
 expression -> lambda
 
-lambda -> "\" parameters? "->" expression | sequence
+lambda -> "\" parameters? ( ( "->" expression | sequence ) | block )
 
-sequence -> assignment ( "," assignment )*
+sequence -> assignment ( "`" assignment )*
 
 assignment -> IDENTIFIER
               ( "=" | "+=" | "-=" | "*=" | "/=" | "%="
@@ -64,9 +64,9 @@ addition -> multiplication ( ( "-" | "+" ) multiplication )*
 
 multiplication -> unary ( ( "/" | "*" | "%" ) unary )*
 
-unary -> ( "!" | "-" | "~" | "++" | "--" ) unary | call
+unary -> ( "!" | "-" | "~" ) unary | call
 
-postfix -> primary ( "(" arguments? ")" | "++" | "--" )*
+call -> primary ( "(" arguments? ")" )*
 
 arguments -> expression ( "," expression )*
 

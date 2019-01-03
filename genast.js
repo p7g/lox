@@ -130,15 +130,12 @@ ${Object.entries(types)
       'Token operator',
       'Expr right',
     ],
-    Ternary: [
-      'Expr left',
-      'Token leftOperator',
-      'Expr middle',
-      'Token rightOperator',
-      'Expr right',
-    ],
     Grouping: [
       'Expr expression',
+    ],
+    Lambda: [
+      'List<Token> params',
+      'List<Stmt> body',
     ],
     Literal: [
       'Object value',
@@ -151,6 +148,13 @@ ${Object.entries(types)
     Shift: [
       'Expr left',
       'Token operator',
+      'Expr right',
+    ],
+    Ternary: [
+      'Expr left',
+      'Token leftOperator',
+      'Expr middle',
+      'Token rightOperator',
       'Expr right',
     ],
     Unary: [

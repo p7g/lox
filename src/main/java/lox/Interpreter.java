@@ -131,7 +131,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
   @Override
   public Void visitFunctionStmt(Stmt.Function stmt) {
-    LoxFunction function = new LoxFunction(stmt);
+    LoxFunction function = new LoxFunction(stmt, environment);
     environment.define(stmt.name.lexeme, function);
     return null;
   }
@@ -238,7 +238,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return isEqual(left, right);
       case BANG_EQUAL:
         return !isEqual(left, right);
-      case COMMA:
+      case BACKTICK:
         return right;
       default: break;
     }
@@ -291,6 +291,11 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
       );
     }
     return function.call(this, arguments);
+  }
+
+  @Override
+  public Object visitLambdaExpr(Expr.Lambda expr) {
+    return new LoxLambda(expr, environment);
   }
 
   @Override

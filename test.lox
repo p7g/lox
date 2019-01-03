@@ -1,12 +1,11 @@
-fun fibonacci(n)
-  if n <= 1 do
-    return n;
-  end
-  return fibonacci(n - 2) + fibonacci(n - 1);
-end
+let a = "global";
 
-let t = time();
-for let i = 0; i < 20; i += 1 do
-  println(fibonacci(i));
+do
+  fun showA
+    println(a)
+  end
+
+  showA();
+  let a = "block";
+  showA();
 end
-println((time() - t) * 1000 + "ms");

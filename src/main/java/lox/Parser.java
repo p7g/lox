@@ -120,7 +120,12 @@ class Parser {
 
     consume(DO, "Expected 'do' after if condition");
 
-    Stmt thenBranch = block(loopCount);
+    List<Stmt> body = new ArrayList<>();
+    while (!check(END) && !check(ELSE) && !isAtEnd()) {
+      body.add(declaration(loopCount));
+    }
+    Stmt thenBranch = new Stmt.Block(body);
+
     Stmt elseBranch = null;
     if (match(ELSE)) {
       // hack for 'else if'
@@ -129,8 +134,15 @@ class Parser {
       }
       else {
         consume(DO, "Expected 'do' after else");
-        elseBranch = block(loopCount);
+        List<Stmt> elseBody = new ArrayList<>();
+        while (!check(END) && !isAtEnd()) {
+          elseBody.add(declaration(loopCount));
+        }
+        elseBranch = new Stmt.Block(elseBody);
       }
+    }
+    else {
+      consume(END, "Expected 'end' after if statement");
     }
 
     return new Stmt.If(condition, thenBranch, elseBranch);
@@ -171,7 +183,9 @@ class Parser {
 
   private Stmt expressionStatement() {
     Expr expr = expression();
-    consume(SEMICOLON, "Expected ';' after expression");
+    if (!check(END)) {
+      consume(SEMICOLON, "Expected ';' after expression");
+    }
     return new Stmt.Expression(expr);
   }
 
@@ -222,8 +236,8 @@ class Parser {
     }
 
     List<Stmt> body = new ArrayList<>();
-    while (!check(END)) {
-      body.add(declaration(loopCount));
+    while (!check(END) && !isAtEnd()) {
+      body.add(declaration(0));
     }
     consume(END, "Expected 'end' after " + kind + " body");
 
@@ -231,13 +245,44 @@ class Parser {
   }
 
   private Expr expression() {
-    return sequence();
+    return lambda();
+  }
+
+  private Expr lambda() {
+    if (!match(BACKSLASH)) {
+      return sequence();
+    }
+
+    List<Token> params = new ArrayList<>();
+    if (!check(MINUS_GREATER) && !check(DO)) {
+      do {
+        params.add(consume(IDENTIFIER, "Expected identifier"));
+      } while (match(COMMA));
+    }
+
+    List<Stmt> body = new ArrayList<>();
+    if (match(DO)) {
+      while (!check(END) && !isAtEnd()) {
+        body.add(declaration(0));
+      }
+      consume(END, "Expected 'end' after block");
+    }
+    else {
+      Token arrow = consume(
+        MINUS_GREATER,
+        "Expected '->' or block after parameter list"
+      );
+      Expr expr = expression();
+      body.add(new Stmt.Return(arrow, expr));
+    }
+
+    return new Expr.Lambda(params, body);
   }
 
   private Expr sequence() {
     Expr expr = assignment();
 
-    while (match(COMMA)) {
+    while (match(BACKTICK)) {
       Token operator = previous();
       Expr right = assignment();
       expr = new Expr.Binary(expr, operator, right);

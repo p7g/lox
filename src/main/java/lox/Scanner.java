@@ -76,6 +76,7 @@ class Scanner {
             case '}': addToken(RIGHT_BRACE); break;
             case ':': addToken(COLON); break;
             case ',': addToken(COMMA); break;
+            case '`': addToken(BACKTICK); break;
             case '.': addToken(DOT); break;
             case '?': addToken(QUESTION_MARK); break;
             case ';': addToken(SEMICOLON); break;
@@ -87,8 +88,19 @@ class Scanner {
             case '|': addToken(match('=') ? PIPE_EQUAL : PIPE); break;
             case '~': addToken(match('=') ? TILDE_EQUAL : TILDE); break;
             case '%': addToken(match('=') ? PERCENT_EQUAL : PERCENT); break;
-            case '-': addToken(match('=') ? MINUS_EQUAL : MINUS); break;
+            case '-':
+                if (match('=')) {
+                    addToken(MINUS_EQUAL);
+                }
+                else if (match('>')) {
+                    addToken(MINUS_GREATER);
+                }
+                else {
+                    addToken(MINUS);
+                }
+                break;
             case '+': addToken(match('=') ? PLUS_EQUAL : PLUS); break;
+            case '\\': addToken(BACKSLASH); break;
             case '<':
                 if (match('=')) {
                     addToken(LESS_EQUAL);

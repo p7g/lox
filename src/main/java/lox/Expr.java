@@ -8,11 +8,12 @@ abstract class Expr {
     R visitCallExpr(Call expr);
     R visitBinaryExpr(Binary expr);
     R visitBitwiseExpr(Bitwise expr);
-    R visitTernaryExpr(Ternary expr);
     R visitGroupingExpr(Grouping expr);
+    R visitLambdaExpr(Lambda expr);
     R visitLiteralExpr(Literal expr);
     R visitLogicalExpr(Logical expr);
     R visitShiftExpr(Shift expr);
+    R visitTernaryExpr(Ternary expr);
     R visitUnaryExpr(Unary expr);
     R visitVariableExpr(Variable expr);
   }
@@ -81,26 +82,6 @@ abstract class Expr {
     }
   }
 
-  static class Ternary extends Expr {
-    final Expr left;
-    final Token leftOperator;
-    final Expr middle;
-    final Token rightOperator;
-    final Expr right;
-
-    Ternary(Expr left, Token leftOperator, Expr middle, Token rightOperator, Expr right) {
-      this.left = left;
-      this.leftOperator = leftOperator;
-      this.middle = middle;
-      this.rightOperator = rightOperator;
-      this.right = right;
-    }
-
-    <R> R accept(Visitor<R> visitor) {
-      return visitor.visitTernaryExpr(this);
-    }
-  }
-
   static class Grouping extends Expr {
     final Expr expression;
 
@@ -110,6 +91,20 @@ abstract class Expr {
 
     <R> R accept(Visitor<R> visitor) {
       return visitor.visitGroupingExpr(this);
+    }
+  }
+
+  static class Lambda extends Expr {
+    final List<Token> params;
+    final List<Stmt> body;
+
+    Lambda(List<Token> params, List<Stmt> body) {
+      this.params = params;
+      this.body = body;
+    }
+
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitLambdaExpr(this);
     }
   }
 
@@ -154,6 +149,26 @@ abstract class Expr {
 
     <R> R accept(Visitor<R> visitor) {
       return visitor.visitShiftExpr(this);
+    }
+  }
+
+  static class Ternary extends Expr {
+    final Expr left;
+    final Token leftOperator;
+    final Expr middle;
+    final Token rightOperator;
+    final Expr right;
+
+    Ternary(Expr left, Token leftOperator, Expr middle, Token rightOperator, Expr right) {
+      this.left = left;
+      this.leftOperator = leftOperator;
+      this.middle = middle;
+      this.rightOperator = rightOperator;
+      this.right = right;
+    }
+
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitTernaryExpr(this);
     }
   }
 
