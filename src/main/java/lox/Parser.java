@@ -627,7 +627,7 @@ class Parser {
     advance();
 
     while (!isAtEnd()) {
-      if (previous().type == SEMICOLON) {
+      if (previous().type == SEMICOLON || previous().type == END) {
         return;
       }
 
