@@ -1,9 +1,5 @@
 let a = "global";
 
-let f = \a, b do
-  println("hullo" + a + b);
-end;
-
 do
   fun showA
     println(a)
