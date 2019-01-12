@@ -3,40 +3,61 @@ package lox;
 import java.util.List;
 
 class LoxFunction implements LoxCallable {
-  private final Stmt.Function declaration;
+  private final CallableNode declaration;
   private final Environment closure;
+  private boolean isInitializer;
 
-  public LoxFunction(Stmt.Function declaration, Environment closure) {
+  public LoxFunction(
+    CallableNode declaration,
+    Environment closure,
+    boolean isInitializer
+  ) {
     this.closure = closure;
     this.declaration = declaration;
+    this.isInitializer = isInitializer;
+  }
+
+  public LoxFunction bind(LoxInstance instance) {
+    Environment environment = new Environment(closure);
+    environment.define("this", instance);
+    return new LoxFunction(declaration, environment, isInitializer);
   }
 
   @Override
   public int arity() {
-    return declaration.params.size();
+    return declaration.getParams().size();
   }
 
   @Override
   public Object call(Interpreter interpreter, List<Object> arguments) {
     Environment environment = new Environment(closure);
-    for (int i = 0; i < declaration.params.size(); i++) {
+    for (int i = 0; i < declaration.getParams().size(); i++) {
       environment.define(
-        declaration.params.get(i).lexeme,
+        declaration.getParams().get(i).lexeme,
         arguments.get(i)
       );
     }
 
     try {
-      interpreter.executeBlock(declaration.body, environment);
+      interpreter.executeBlock(declaration.getBody(), environment);
     }
     catch (Return returnValue) {
+      if (isInitializer) {
+        return closure.getAt(0, "this");
+      }
+
       return returnValue.value;
     }
+
+    if (isInitializer) { // blegh
+      return closure.getAt(0, "this");
+    }
+
     return null;
   }
 
   @Override
   public String toString() {
-    return "<fun " + declaration.name.lexeme + ">";
+    return "<fun " + declaration.getName().lexeme + ">";
   }
 }

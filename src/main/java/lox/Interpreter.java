@@ -1,10 +1,13 @@
 package lox;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   public Environment globals = new Environment();
+  private final Map<Expr, Integer> locals = new HashMap<>();
   private Environment environment = globals;
 
   public Interpreter() {
@@ -52,6 +55,23 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return "<native function>";
       }
     });
+    globals.define("assert", new LoxCallable() {
+      @Override
+      public int arity() { return 2; }
+
+      @Override
+      public Object call(Interpreter interpreter, List<Object> arguments) {
+        if (!isTruthy(arguments.get(0))) {
+          throw new AssertionError(arguments.get(1).toString());
+        }
+        return null;
+      }
+
+      @Override
+      public String toString() {
+        return "<native function>";
+      }
+    });
   }
 
   public void interpret(List<Stmt> statements) {
@@ -80,6 +100,10 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
   private void execute(Stmt stmt) {
     stmt.accept(this);
+  }
+
+  public void resolve(Expr expr, int depth) {
+    locals.put(expr, depth);
   }
 
   public void executeBlock(List<Stmt> statements, Environment environment) {
@@ -124,6 +148,61 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   }
 
   @Override
+  public Void visitClassStmt(Stmt.Class stmt) {
+    Object superclass = null;
+    if (stmt.superclass != null) {
+      superclass = evaluate(stmt.superclass);
+      if (!(superclass instanceof LoxClass)) {
+        throw new RuntimeError(
+          stmt.superclass.name,
+          "Superclass must be a class"
+        );
+      }
+    }
+
+    environment.define(stmt.name.lexeme, null);
+
+    if (stmt.superclass != null) {
+      environment = new Environment(environment);
+      environment.define("super", superclass);
+    }
+
+    Map<String, LoxFunction> methods = new HashMap<>();
+    for (Stmt.Function method : stmt.methods) {
+      LoxFunction function = new LoxFunction(
+        method,
+        environment,
+        method.name.lexeme.equals("init")
+      );
+      methods.put(method.name.lexeme, function);
+    }
+
+    Map<String, LoxFunction> staticMethods = new HashMap<>();
+    for (Stmt.Function method : stmt.staticMethods) {
+      LoxFunction function = new LoxFunction(
+        method,
+        environment,
+        false
+      );
+      staticMethods.put(method.name.lexeme, function);
+    }
+
+    LoxClass klass = new LoxClass(
+      stmt.name.lexeme,
+      (LoxClass) superclass,
+      methods,
+      staticMethods
+    );
+
+    if (superclass != null) {
+      environment = environment.enclosing;
+    }
+
+    environment.assign(stmt.name, klass);
+    return null;
+  }
+
+  @Override
   public Void visitExpressionStmt(Stmt.Expression stmt) {
     evaluate(stmt.expression);
     return null;
@@ -131,7 +210,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
   @Override
   public Void visitFunctionStmt(Stmt.Function stmt) {
-    LoxFunction function = new LoxFunction(stmt, environment);
+    LoxFunction function = new LoxFunction(stmt, environment, false);
     environment.define(stmt.name.lexeme, function);
     return null;
   }
@@ -189,6 +268,14 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   public Object visitAssignExpr(Expr.Assign expr) {
     Object value = evaluate(expr.value);
 
+    Integer distance = locals.get(expr);
+    if (distance != null) {
+      environment.assignAt(distance, expr.name, value);
+    }
+    else {
+      globals.assign(expr.name, value);
+    }
+
     environment.assign(expr.name, value);
     return value;
   }
@@ -240,32 +327,25 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return !isEqual(left, right);
       case BACKTICK:
         return right;
+      case PIPE:
+        checkNumberOperands(expr.operator, left, right);
+        return (double) (toInt(left) | toInt(right));
+      case CARET:
+        checkNumberOperands(expr.operator, left, right);
+        return (double) (toInt(left) ^ toInt(right));
+      case AMPERSAND:
+        checkNumberOperands(expr.operator, left, right);
+        return (double) (toInt(left) & toInt(right));
+      case LESS_LESS:
+        checkNumberOperands(expr.operator, left, right);
+        return (double) (toInt(left) << toInt(right));
+      case GREATER_GREATER:
+        checkNumberOperands(expr.operator, left, right);
+        return (double) (toInt(left) >> toInt(right));
       default: break;
     }
 
     // unreachable
-    return null;
-  }
-
-  @Override
-  public Object visitBitwiseExpr(Expr.Bitwise expr) {
-    Object left = evaluate(expr.left);
-    Object right = evaluate(expr.right);
-
-    checkNumberOperands(expr.operator, left, right);
-
-    int a = toInt(left);
-    int b = toInt(right);
-
-    switch (expr.operator.type) {
-      case PIPE:
-        return a | b;
-      case CARET:
-        return a ^ b;
-      case AMPERSAND:
-        return a & b;
-      default: break;
-    }
     return null;
   }
 
@@ -294,8 +374,18 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   }
 
   @Override
+  public Object visitGetExpr(Expr.Get expr) {
+    Object object = evaluate(expr.object);
+    if (object instanceof LoxInstance) {
+      return ((LoxInstance) object).get(expr.name);
+    }
+
+    throw new RuntimeError(expr.name, "Only instances have properties");
+  }
+
+  @Override
   public Object visitLambdaExpr(Expr.Lambda expr) {
-    return new LoxLambda(expr, environment);
+    return new LoxFunction(expr, environment, false);
   }
 
   @Override
@@ -327,24 +417,58 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   }
 
   @Override
-  public Object visitShiftExpr(Expr.Shift expr) {
-    Object left = evaluate(expr.left);
-    Object right = evaluate(expr.right);
+  public Object visitSetExpr(Expr.Set expr) {
+    Object object = evaluate(expr.object);
 
-    checkNumberOperands(expr.operator, left, right);
-
-    int a = toInt(left);
-    int b = toInt(right);
-
-    switch (expr.operator.type) {
-      case LESS_LESS:
-        return a << b;
-      case GREATER_GREATER:
-        return a >> b;
-      default: break;
+    if (!(object instanceof LoxInstance)) {
+      throw new RuntimeError(expr.name, "Only instances have fields");
     }
 
+    Object value = evaluate(expr.value);
+    ((LoxInstance) object).set(expr.name, value);
+    return value;
+  }
+
+  @Override
+  public Object visitSuperExpr(Expr.Super expr) {
+    int distance = locals.get(expr);
+    LoxClass superclass = (LoxClass) environment.getAt(distance, "super");
+
+    // "this" is always one environment nearer than "super"
+    LoxInstance object = (LoxInstance) environment.getAt(distance - 1, "this");
+
+    LoxFunction method = superclass.findMethod(object, expr.method.lexeme);
+
+    if (method == null) {
+      throw new RuntimeError(
+        expr.method,
+        "Undefined property '" + expr.method.lexeme + "'"
+      );
+    }
+
+    return method;
+  }
+
+  @Override
+  public Object visitTernaryExpr(Expr.Ternary expr) {
+    if (
+      expr.leftOperator.type == TokenType.QUESTION_MARK
+      && expr.rightOperator.type == TokenType.COLON
+    ) {
+      Object left = evaluate(expr.left);
+      if (isTruthy(left)) {
+        return evaluate(expr.middle);
+      }
+      return evaluate(expr.right);
+    }
+
+    // unreachable
     return null;
+  }
+
+  @Override
+  public Object visitThisExpr(Expr.This expr) {
+    return lookupVariable(expr.keyword, expr);
   }
 
   @Override
@@ -366,24 +490,17 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
   @Override
   public Object visitVariableExpr(Expr.Variable expr) {
-    return environment.get(expr.name);
+    return lookupVariable(expr.name, expr);
   }
 
-  @Override
-  public Object visitTernaryExpr(Expr.Ternary expr) {
-    if (
-      expr.leftOperator.type == TokenType.QUESTION_MARK
-      && expr.rightOperator.type == TokenType.COLON
-    ) {
-      Object left = evaluate(expr.left);
-      if (isTruthy(left)) {
-        return evaluate(expr.middle);
-      }
-      return evaluate(expr.right);
+  private Object lookupVariable(Token name, Expr expr) {
+    Integer distance = locals.get(expr);
+    if (distance != null) {
+      return environment.getAt(distance, name.lexeme);
     }
-
-    // unreachable
-    return null;
+    else {
+      return globals.get(name);
+    }
   }
 
   private static void checkNumberOperand(Token operator, Object operand) {

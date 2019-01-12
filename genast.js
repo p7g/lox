@@ -21,6 +21,39 @@ function fieldProperties(fields, indent) {
   );
 }
 
+const IMPLEMENTS = {
+  'Lambda': ['CallableNode'],
+  'Function': ['CallableNode'],
+};
+function implements(className) {
+  const implements = IMPLEMENTS[className];
+  if (implements && implements.length) {
+    return ` implements ${implements.join(', ')}`;
+  }
+  return '';
+}
+
+const callableNodeGetters = `
+    public List<Token> getParams() {
+      return this.params;
+    }
+
+    public List<Stmt> getBody() {
+      return this.body;
+    }
+
+    public Token getName() {
+      return this.name;
+    }
+`;
+const EXTRA = {
+  'Lambda': callableNodeGetters,
+  'Function': callableNodeGetters,
+};
+function extra(className) {
+  return EXTRA[className] || '';
+}
+
 function defineAst(outputDir, baseName, types) {
   const outPath = path.join(outputDir, `${baseName}.java`);
 
@@ -47,13 +80,13 @@ ${Object.entries(types)
 ${Object.entries(types)
     .map(
       ([className, fields]) => `\
-  static class ${className} extends ${baseName} {
+  static class ${className} extends ${baseName}${implements(className)} {
     ${fieldProperties(fields, 2)}
 
-    ${className}(${fields.join(', ')}) {
+    public ${className}(${fields.join(', ')}) {
       ${fieldAssignments(fields, 3)}
     }
-
+    ${extra(className)}
     <R> R accept(Visitor<R> visitor) {
       return visitor.visit${className + baseName}(this);
     }
@@ -81,6 +114,12 @@ ${Object.entries(types)
       'Token token',
       'Expr levels',
       'int maxLevels',
+    ],
+    Class: [
+      'Token name',
+      'Expr.Variable superclass',
+      'List<Stmt.Function> methods',
+      'List<Stmt.Function> staticMethods',
     ],
     Expression: [
       'Expr expression',
@@ -125,15 +164,15 @@ ${Object.entries(types)
       'Token operator',
       'Expr right',
     ],
-    Bitwise: [
-      'Expr left',
-      'Token operator',
-      'Expr right',
+    Get: [
+      'Expr object',
+      'Token name',
     ],
     Grouping: [
       'Expr expression',
     ],
     Lambda: [
+      'Token name',
       'List<Token> params',
       'List<Stmt> body',
     ],
@@ -145,10 +184,14 @@ ${Object.entries(types)
       'Token operator',
       'Expr right',
     ],
-    Shift: [
-      'Expr left',
-      'Token operator',
-      'Expr right',
+    Set: [
+      'Expr object',
+      'Token name',
+      'Expr value',
+    ],
+    Super: [
+      'Token keyword',
+      'Token method',
     ],
     Ternary: [
       'Expr left',
@@ -156,6 +199,9 @@ ${Object.entries(types)
       'Expr middle',
       'Token rightOperator',
       'Expr right',
+    ],
+    This: [
+      'Token keyword',
     ],
     Unary: [
       'Token operator',

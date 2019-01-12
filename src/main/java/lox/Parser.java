@@ -11,6 +11,7 @@ class Parser {
 
   private final List<Token> tokens;
   private int current = 0;
+  private int anonymousFunctionCount = 0;
 
   Parser(List<Token> tokens) {
     this.tokens = tokens;
@@ -184,7 +185,7 @@ class Parser {
   private Stmt expressionStatement() {
     Expr expr = expression();
     if (!check(END)) {
-      consume(SEMICOLON, "Expected ';' after expression");
+      consume(SEMICOLON, "Expected ';' or end of block after expression");
     }
     return new Stmt.Expression(expr);
   }
@@ -202,6 +203,9 @@ class Parser {
 
   private Stmt declaration(int loopCount) {
     try {
+      if (match(CLASS)) {
+        return classDeclaration();
+      }
       if (match(LET)) {
         return letDeclaration();
       }
@@ -215,6 +219,31 @@ class Parser {
       synchronize();
       return null;
     }
+  }
+
+  private Stmt classDeclaration() {
+    Token name = consume(IDENTIFIER, "Expected class name");
+
+    Expr.Variable superclass = null;
+    if (match(LESS)) {
+      consume(IDENTIFIER, "Expected superclass name");
+      superclass = new Expr.Variable(previous());
+    }
+
+    List<Stmt.Function> staticMethods = new ArrayList<>();
+    List<Stmt.Function> methods = new ArrayList<>();
+    while (!check(END) && !isAtEnd()) {
+      if (match(STATIC)) {
+        staticMethods.add(function(0, "method"));
+      }
+      else {
+        methods.add(function(0, "method"));
+      }
+    }
+
+    consume(END, "Expected 'end' after class declaration");
+
+    return new Stmt.Class(name, superclass, methods, staticMethods);
   }
 
   private Stmt.Function function(int loopCount, String kind) {
@@ -252,6 +281,7 @@ class Parser {
     if (!match(BACKSLASH)) {
       return sequence();
     }
+    Token backslash = previous();
 
     List<Token> params = new ArrayList<>();
     if (!check(MINUS_GREATER) && !check(DO)) {
@@ -276,7 +306,17 @@ class Parser {
       body.add(new Stmt.Return(arrow, expr));
     }
 
-    return new Expr.Lambda(params, body);
+    return new Expr.Lambda(
+      new Token(
+        TokenType.IDENTIFIER,
+        "anonymous#" + anonymousFunctionCount++,
+        null,
+        backslash.line,
+        backslash.column
+      ),
+      params,
+      body
+    );
   }
 
   private Expr sequence() {
@@ -300,7 +340,7 @@ class Parser {
       AMPERSAND_EQUAL, CARET_EQUAL, PIPE_EQUAL
     )) {
       Token equals = previous();
-      Expr value = assignment();
+      Expr value = expression();
 
       if (equals.type != EQUAL) {
         TokenType operatorType = null;
@@ -361,6 +401,10 @@ class Parser {
         Token name = ((Expr.Variable) expr).name;
         return new Expr.Assign(name, value);
       }
+      else if (expr instanceof Expr.Get) {
+        Expr.Get get = (Expr.Get) expr;
+        return new Expr.Set(get.object, get.name, value);
+      }
 
       error(equals, "Invalid assignment target");
     }
@@ -396,48 +440,12 @@ class Parser {
   }
 
   private Expr and() {
-    Expr expr = bitwiseOr();
+    Expr expr = equality();
 
     while (match(AND)) {
       Token operator = previous();
       Expr right = bitwiseOr();
       expr = new Expr.Logical(expr, operator, right);
-    }
-
-    return expr;
-  }
-
-  private Expr bitwiseOr() {
-    Expr expr = bitwiseXor();
-
-    while (match(PIPE)) {
-      Token operator = previous();
-      Expr right = bitwiseXor();
-      expr = new Expr.Bitwise(expr, operator, right);
-    }
-
-    return expr;
-  }
-
-  private Expr bitwiseXor() {
-    Expr expr = bitwiseAnd();
-
-    while (match(CARET)) {
-      Token operator = previous();
-      Expr right = bitwiseAnd();
-      expr = new Expr.Bitwise(expr, operator, right);
-    }
-
-    return expr;
-  }
-
-  private Expr bitwiseAnd() {
-    Expr expr = equality();
-
-    while (match(AMPERSAND)) {
-      Token operator = previous();
-      Expr right = equality();
-      expr = new Expr.Bitwise(expr, operator, right);
     }
 
     return expr;
@@ -456,9 +464,45 @@ class Parser {
   }
 
   private Expr comparison() {
-    Expr expr = shift();
+    Expr expr = bitwiseOr();
 
     while (match(GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)) {
+      Token operator = previous();
+      Expr right = bitwiseOr();
+      expr = new Expr.Binary(expr, operator, right);
+    }
+
+    return expr;
+  }
+
+  private Expr bitwiseOr() {
+    Expr expr = bitwiseXor();
+
+    while (match(PIPE)) {
+      Token operator = previous();
+      Expr right = bitwiseXor();
+      expr = new Expr.Binary(expr, operator, right);
+    }
+
+    return expr;
+  }
+
+  private Expr bitwiseXor() {
+    Expr expr = bitwiseAnd();
+
+    while (match(CARET)) {
+      Token operator = previous();
+      Expr right = bitwiseAnd();
+      expr = new Expr.Binary(expr, operator, right);
+    }
+
+    return expr;
+  }
+
+  private Expr bitwiseAnd() {
+    Expr expr = shift();
+
+    while (match(AMPERSAND)) {
       Token operator = previous();
       Expr right = shift();
       expr = new Expr.Binary(expr, operator, right);
@@ -473,7 +517,7 @@ class Parser {
     while (match(LESS_LESS, GREATER_GREATER)) {
       Token operator = previous();
       Expr right = addition();
-      expr = new Expr.Shift(expr, operator, right);
+      expr = new Expr.Binary(expr, operator, right);
     }
 
     return expr;
@@ -519,6 +563,10 @@ class Parser {
     while (true) {
       if (match(LEFT_PAREN)) {
         expr = finishCall(expr);
+      }
+      else if (match(DOT)) {
+        Token name = consume(IDENTIFIER, "Expected property name after '.'");
+        expr = new Expr.Get(expr, name);
       }
       else {
         break;
@@ -568,6 +616,17 @@ class Parser {
 
     if (match(IDENTIFIER)) {
       return new Expr.Variable(previous());
+    }
+
+    if (match(THIS)) {
+      return new Expr.This(previous());
+    }
+
+    if (match(SUPER)) {
+      Token keyword = previous();
+      consume(DOT, "Expected '.' after 'super'");
+      Token method = consume(IDENTIFIER, "Expected superclass method name");
+      return new Expr.Super(keyword, method);
     }
 
     throw error(peek(), "Expected expression");

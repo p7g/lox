@@ -1,6 +1,9 @@
 program -> declaration* EOF
 
-declaration -> letDeclaration | funDeclaration | statement
+declaration -> classDeclaration
+             | letDeclaration
+             | funDeclaration
+             | statement
 
 statement -> block
            | expressionStatement
@@ -23,6 +26,8 @@ whileStatement -> "while" expression block
 
 breakStatement -> "break" ( expression )? ";"
 
+classDeclaration -> "class" ( "<" IDENTIFIER )? IDENTIFIER function* "end"
+
 letDeclaration -> "let" IDENTIFIER ( "=" expression )? ";"
 
 funDeclaration -> "fun" function
@@ -37,10 +42,11 @@ lambda -> "\" parameters? ( ( "->" expression | sequence ) | block )
 
 sequence -> assignment ( "`" assignment )*
 
-assignment -> IDENTIFIER
+assignment -> ( call "." )? IDENTIFIER
               ( "=" | "+=" | "-=" | "*=" | "/=" | "%="
-              | "<<=" | ">>=" | "&=" | "^=" | "|=" )
-              assignment | conditional
+                | "<<=" | ">>=" | "&=" | "^=" | "|=" )
+              assignment
+              | conditional
 
 conditional -> logicalOr ( "?" expression ":" conditional )*
 
@@ -66,10 +72,11 @@ multiplication -> unary ( ( "/" | "*" | "%" ) unary )*
 
 unary -> ( "!" | "-" | "~" ) unary | call
 
-call -> primary ( "(" arguments? ")" )*
+call -> primary ( "(" arguments? ")" | "." IDENTIFIER )*
 
 arguments -> expression ( "," expression )*
 
 primary -> NUMBER | STRING | "false" | "true" | "nil"
          | "(" expression ")"
          | IDENTIFIER
+         | "super" "." IDENTIFIER

@@ -1,2 +1,10 @@
 - allow ?, !, and - in identifiers (? and ! only as last char)
-- haskell '$' operator
+- function composition operator
+- pipe operator
+- allow no semicolon before 'end' (everywhere)
+- allow LoxFunction.bind() to take things other than LoxInstance?
+- getters and setters
+- fix classes (static ones)
+  - no way to access static properties from non-static methods
+  - static methods are not inherited
+  - need 'self' keyword?
